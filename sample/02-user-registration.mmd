@@ -1,0 +1,28 @@
+---
+title: User Registration
+description: New user signup flow with email verification
+---
+sequenceDiagram
+    %% @desc User: New user signing up for an account
+    %% @desc AuthService: Handles registration, password hashing and verification
+    %% @desc UserDB: Stores user credentials and profiles
+    %% @desc EmailService: Sends transactional emails (verification, notifications)
+    actor User
+    participant AuthService as Auth Service
+    participant UserDB as User Database
+    participant EmailService as Email Service
+
+    User->>AuthService: POST /register (name, email, password)
+    AuthService->>UserDB: SELECT user WHERE email = ?
+    UserDB-->>AuthService: No record found
+    AuthService->>AuthService: Hash password with bcrypt
+    AuthService->>UserDB: INSERT user (name, email, hash, verified=false)
+    UserDB-->>AuthService: User created (id)
+    AuthService->>EmailService: sendVerificationEmail(email, token)
+    EmailService-->>AuthService: Queued
+    AuthService-->>User: 201 Created (check your email)
+
+    User->>AuthService: GET /verify?token=abc123
+    AuthService->>UserDB: UPDATE user SET verified=true WHERE token=?
+    UserDB-->>AuthService: Updated
+    AuthService-->>User: 200 OK (account active)

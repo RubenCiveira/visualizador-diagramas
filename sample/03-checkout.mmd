@@ -1,0 +1,29 @@
+---
+title: Checkout Flow
+description: E-commerce checkout from cart review to order confirmation
+---
+sequenceDiagram
+    %% @desc User: Authenticated customer placing an order
+    %% @desc CartService: Manages shopping cart contents and pricing
+    %% @desc PaymentService: Processes payments via external gateways
+    %% @desc OrderService: Creates and persists orders
+    %% @desc NotificationService: Sends emails and push notifications
+    actor User
+    participant CartService as Cart Service
+    participant PaymentService as Payment Service
+    participant OrderService as Order Service
+    participant NotificationService as Notification Service
+
+    User->>CartService: GET /cart
+    CartService-->>User: { items, subtotal, taxes, total }
+    User->>PaymentService: POST /payment/tokenize (card details)
+    PaymentService->>PaymentService: Validate and tokenize card
+    PaymentService-->>User: { paymentToken }
+    User->>OrderService: POST /orders (cartId, paymentToken, address)
+    OrderService->>CartService: GET /cart/:cartId (validate items)
+    CartService-->>OrderService: Cart items with current prices
+    OrderService->>PaymentService: POST /payment/charge (token, amount)
+    PaymentService-->>OrderService: { chargeId, status: "succeeded" }
+    OrderService->>NotificationService: orderConfirmed(orderId, userId)
+    NotificationService-->>User: Email: "Your order #1234 is confirmed"
+    OrderService-->>User: 201 Created { orderId, estimatedDelivery }

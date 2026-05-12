@@ -1,0 +1,28 @@
+---
+title: Order Processing
+description: Backend fulfillment pipeline from payment capture to shipment dispatch
+---
+sequenceDiagram
+    %% @desc OrderService: Creates and manages the lifecycle of orders
+    %% @desc WarehouseService: Manages inventory, picking and packing
+    %% @desc ShippingService: Arranges carrier pickup and generates tracking
+    %% @desc NotificationService: Sends emails and push notifications
+    %% @desc PaymentService: Processes payments via external gateways
+    participant OrderService as Order Service
+    participant WarehouseService as Warehouse Service
+    participant ShippingService as Shipping Service
+    participant NotificationService as Notification Service
+    participant PaymentService as Payment Service
+
+    OrderService->>WarehouseService: reserveInventory(orderId, items)
+    WarehouseService-->>OrderService: Reservation confirmed
+    OrderService->>PaymentService: capturePayment(chargeId)
+    PaymentService-->>OrderService: Payment captured
+    OrderService->>WarehouseService: pickAndPack(orderId)
+    WarehouseService-->>OrderService: Items ready for dispatch
+    OrderService->>ShippingService: createShipment(orderId, address, items)
+    ShippingService-->>OrderService: { trackingNumber, carrier, estimatedDelivery }
+    OrderService->>NotificationService: orderShipped(orderId, trackingNumber)
+    NotificationService-->>OrderService: Notification sent
+    OrderService->>WarehouseService: confirmDispatch(orderId)
+    WarehouseService-->>OrderService: Dispatch confirmed

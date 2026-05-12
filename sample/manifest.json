@@ -1,0 +1,8 @@
+{
+  "diagrams": [
+    { "id": "user-auth", "url": "01-user-auth.mmd" },
+    { "id": "user-registration", "url": "02-user-registration.mmd" },
+    { "id": "checkout", "url": "03-checkout.mmd" },
+    { "id": "order-processing", "url": "04-order-processing.mmd" }
+  ]
+}

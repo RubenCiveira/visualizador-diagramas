@@ -1,0 +1,21 @@
+---
+title: User Authentication
+description: How users log in and receive a session token
+---
+sequenceDiagram
+    %% @desc User: End user accessing the application
+    %% @desc AuthService: Handles login, token issuance and validation
+    %% @desc UserDB: Stores user credentials and profiles
+    %% @desc SessionStore: Redis cache for active session tokens
+    actor User
+    participant AuthService as Auth Service
+    participant UserDB as User Database
+    participant SessionStore as Session Store
+
+    User->>AuthService: POST /login (email, password)
+    AuthService->>UserDB: SELECT user WHERE email = ?
+    UserDB-->>AuthService: User record (hashed password)
+    AuthService->>AuthService: Verify bcrypt hash
+    AuthService->>SessionStore: SET session:{token} user_id TTL 24h
+    SessionStore-->>AuthService: OK
+    AuthService-->>User: 200 OK { token, expiresAt }
