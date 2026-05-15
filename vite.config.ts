@@ -4,6 +4,7 @@ import { resolve } from 'path';
 import dts from 'vite-plugin-dts';
 
 export default defineConfig(({ mode }) => {
+  // npm library — React/ReactFlow externalised
   if (mode === 'lib') {
     return {
       plugins: [
@@ -32,6 +33,23 @@ export default defineConfig(({ mode }) => {
     };
   }
 
+  // Standalone IIFE — React bundled, usable from plain HTML
+  if (mode === 'standalone') {
+    return {
+      plugins: [react()],
+      build: {
+        lib: {
+          entry: resolve(__dirname, 'src/standalone.ts'),
+          name: 'SequenceFlowVisualizer',
+          fileName: 'sequence-flow-visualizer',
+          formats: ['iife'],
+        },
+        copyPublicDir: false,
+      },
+    };
+  }
+
+  // Dev server
   return {
     plugins: [react()],
   };

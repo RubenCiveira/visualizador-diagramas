@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sequence Flow Visualizer</title>
+    <link rel="stylesheet" href="../dist/sequence-flow-visualizer.iife.css" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; font-family: sans-serif; }
+      #app { width: 100vw; height: 100vh; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="../dist/sequence-flow-visualizer.iife.js"></script>
+    <script>
+      SequenceFlowVisualizer.mount(
+        document.getElementById('app'),
+        './manifest.json',
+        {
+          diagramListPosition: 'right',
+          stepsPosition: 'left',
+        }
+      );
+    </script>
+  </body>
+</html>

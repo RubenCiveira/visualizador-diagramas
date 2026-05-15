@@ -14,7 +14,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --mode standalone",
     "build:lib": "vite build --mode lib",
     "preview": "vite preview",
     "type-check": "tsc --noEmit"
