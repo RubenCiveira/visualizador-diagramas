@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sequence Flow Visualizer — Static demo</title>
+    <link rel="stylesheet" href="../dist/sequence-flow-visualizer.css" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; font-family: sans-serif; }
+      #app { width: 100vw; height: 100vh; }
+    </style>
+  </head>
+  <body>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         Diagrams are embedded directly as <script type="text/mermaid">.
+         No server, no fetch, no build step needed after pnpm build.
+         Open this file directly from the filesystem: file:// works.
+         ═══════════════════════════════════════════════════════════════════ -->
+
+    <script type="text/mermaid" data-id="user-auth">
+---
+title: User Authentication
+description: How users log in and receive a session token
+---
+sequenceDiagram
+    %% @desc User: End user accessing the application
+    %% @desc AuthService: Handles login and token issuance
+    %% @desc UserDB: Stores user credentials and profiles
+    %% @desc SessionStore: Redis cache for active session tokens
+    actor User
+    participant AuthService as Auth Service
+    participant UserDB as User Database
+    participant SessionStore as Session Store
+
+    User->>AuthService: POST /login (email, password)
+    AuthService->>UserDB: SELECT user WHERE email = ?
+    UserDB-->>AuthService: User record (hashed password)
+    AuthService->>AuthService: Verify bcrypt hash
+    AuthService->>SessionStore: SET session:{token} TTL 24h
+    SessionStore-->>AuthService: OK
+    AuthService-->>User: 200 OK { token, expiresAt }
+    </script>
+
+    <script type="text/mermaid" data-id="user-registration">
+---
+title: User Registration
+description: New user signup flow with email verification
+---
+sequenceDiagram
+    %% @desc User: New user signing up for an account
+    %% @desc AuthService: Handles registration and password hashing
+    %% @desc UserDB: Stores user credentials and profiles
+    %% @desc EmailService: Sends transactional emails
+    actor User
+    participant AuthService as Auth Service
+    participant UserDB as User Database
+    participant EmailService as Email Service
+
+    User->>AuthService: POST /register (name, email, password)
+    AuthService->>UserDB: SELECT user WHERE email = ?
+    UserDB-->>AuthService: No record found
+    AuthService->>AuthService: Hash password with bcrypt
+    AuthService->>UserDB: INSERT user (verified=false)
+    UserDB-->>AuthService: User created
+    AuthService->>EmailService: sendVerificationEmail(email, token)
+    EmailService-->>AuthService: Queued
+    AuthService-->>User: 201 Created (check your email)
+    User->>AuthService: GET /verify?token=abc123
+    AuthService->>UserDB: UPDATE user SET verified=true
+    UserDB-->>AuthService: Updated
+    AuthService-->>User: 200 OK (account active)
+    </script>
+
+    <script type="text/mermaid" data-id="checkout">
+---
+title: Checkout Flow
+description: E-commerce checkout from cart to order confirmation
+---
+sequenceDiagram
+    %% @desc User: Authenticated customer placing an order
+    %% @desc CartService: Manages shopping cart contents
+    %% @desc PaymentService: Processes payments via gateways
+    %% @desc OrderService: Creates and persists orders
+    %% @desc NotificationService: Sends emails and push notifications
+    actor User
+    participant CartService as Cart Service
+    participant PaymentService as Payment Service
+    participant OrderService as Order Service
+    participant NotificationService as Notification Service
+
+    User->>CartService: GET /cart
+    CartService-->>User: { items, total }
+    User->>PaymentService: POST /payment/tokenize (card details)
+    PaymentService-->>User: { paymentToken }
+    User->>OrderService: POST /orders (cartId, paymentToken)
+    OrderService->>CartService: GET /cart/:cartId
+    CartService-->>OrderService: Cart items
+    OrderService->>PaymentService: POST /payment/charge (token, amount)
+    PaymentService-->>OrderService: { chargeId, status: succeeded }
+    OrderService->>NotificationService: orderConfirmed(orderId)
+    NotificationService-->>User: Email: order confirmed
+    OrderService-->>User: 201 Created { orderId }
+    </script>
+
+    <script type="text/mermaid" data-id="order-processing">
+---
+title: Order Processing
+description: Backend fulfillment from payment capture to shipment
+---
+sequenceDiagram
+    %% @desc OrderService: Manages order lifecycle
+    %% @desc WarehouseService: Manages inventory and packing
+    %% @desc ShippingService: Arranges carrier pickup
+    %% @desc NotificationService: Sends emails and push notifications
+    %% @desc PaymentService: Processes payments and captures charges
+    participant OrderService as Order Service
+    participant WarehouseService as Warehouse Service
+    participant ShippingService as Shipping Service
+    participant NotificationService as Notification Service
+    participant PaymentService as Payment Service
+
+    OrderService->>WarehouseService: reserveInventory(orderId)
+    WarehouseService-->>OrderService: Reservation confirmed
+    OrderService->>PaymentService: capturePayment(chargeId)
+    PaymentService-->>OrderService: Payment captured
+    OrderService->>WarehouseService: pickAndPack(orderId)
+    WarehouseService-->>OrderService: Items ready
+    OrderService->>ShippingService: createShipment(orderId)
+    ShippingService-->>OrderService: { trackingNumber }
+    OrderService->>NotificationService: orderShipped(orderId)
+    NotificationService-->>OrderService: Notification sent
+    </script>
+
+    <div id="app"></div>
+
+    <script src="../dist/sequence-flow-visualizer.iife.js"></script>
+    <script>
+      SequenceFlowVisualizer.mountFromScripts(document.getElementById('app'), {
+        diagramListPosition: 'right',
+        stepsPosition: 'left',
+      });
+    </script>
+  </body>
+</html>

@@ -9,17 +9,28 @@ const defaultAdapter = new MermaidAdapter();
 
 export function SequenceVisualizer({
   url,
+  diagrams: propDiagrams,
   adapter,
   diagramListPosition = 'right',
   stepsPosition = 'left',
   height = '100vh',
 }: SequenceVisualizerProps) {
-  const [diagrams, setDiagrams] = useState<Diagram[]>([]);
+  const [diagrams, setDiagrams] = useState<Diagram[]>(propDiagrams ?? []);
   const [selectedDiagramId, setSelectedDiagramId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!propDiagrams);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Inline diagrams supplied — no fetch needed
+    if (propDiagrams) {
+      setDiagrams(propDiagrams);
+      setLoading(false);
+      setSelectedDiagramId(null);
+      return;
+    }
+
+    if (!url) return;
+
     const adapterInstance = adapter ?? defaultAdapter;
     setLoading(true);
     setError(null);
@@ -30,7 +41,7 @@ export function SequenceVisualizer({
       .then(setDiagrams)
       .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false));
-  }, [url, adapter]);
+  }, [url, propDiagrams, adapter]);
 
   const selectedDiagram = diagrams.find((d) => d.id === selectedDiagramId) ?? null;
 

@@ -43,7 +43,10 @@ export interface PanelPosition {
 }
 
 export interface SequenceVisualizerProps {
-  url: string;
+  /** URL to a manifest JSON or a single .mmd/.md file. Mutually exclusive with `diagrams`. */
+  url?: string;
+  /** Pre-parsed diagrams. When provided, no fetch is performed. */
+  diagrams?: Diagram[];
   adapter?: DiagramAdapter;
   diagramListPosition?: 'left' | 'right';
   stepsPosition?: 'left' | 'right';
