@@ -37,6 +37,9 @@ export default defineConfig(({ mode }) => {
   if (mode === 'standalone') {
     return {
       plugins: [react()],
+      define: {
+        'process.env.NODE_ENV': '"production"',
+      },
       build: {
         lib: {
           entry: resolve(__dirname, 'src/standalone.ts'),
