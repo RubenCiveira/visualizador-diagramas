@@ -44,7 +44,12 @@ function arrowType(arrow: string): Step['type'] {
   return 'sync';
 }
 
-export function parseMermaidDiagram(content: string, id: string): Diagram {
+export function parseMermaidDiagram(
+  content: string,
+  id: string,
+  fallbackTitle?: string,
+  fallbackDescription?: string,
+): Diagram {
   const { meta, body } = parseFrontmatter(content);
 
   const participantMap = new Map<string, Participant>();
@@ -52,8 +57,8 @@ export function parseMermaidDiagram(content: string, id: string): Diagram {
   const pendingDescs = new Map<string, string>();
   const pendingStereotypes = new Map<string, Stereotype>();
 
-  let title = meta['title'] ?? '';
-  const description = meta['description'] ?? '';
+  let title = meta['title'] ?? fallbackTitle ?? '';
+  const description = meta['description'] ?? fallbackDescription ?? '';
   let inDiagram = false;
 
   for (const raw of body.split('\n')) {
@@ -143,15 +148,97 @@ export function parseMermaidDiagram(content: string, id: string): Diagram {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Markdown extractor — finds all ```mermaid sequenceDiagram blocks
+// ---------------------------------------------------------------------------
+
+interface MarkdownBlock {
+  code: string;
+  heading: string;
+  description: string;
+}
+
+function extractMermaidBlocks(markdown: string): MarkdownBlock[] {
+  const blocks: MarkdownBlock[] = [];
+  const lines = markdown.split('\n');
+
+  let currentHeading = '';
+  let currentDescription = '';
+  let collectingDesc = false;
+  let inFence = false;
+  let fenceLang = '';
+  let fenceLines: string[] = [];
+
+  for (const line of lines) {
+    if (!inFence) {
+      const headingMatch = line.match(/^#{1,6}\s+(.+)$/);
+      if (headingMatch) {
+        currentHeading = headingMatch[1].trim();
+        currentDescription = '';
+        collectingDesc = true;
+        continue;
+      }
+
+      const fenceStart = line.match(/^```(\w*)/);
+      if (fenceStart) {
+        fenceLang = fenceStart[1].toLowerCase();
+        inFence = true;
+        fenceLines = [];
+        collectingDesc = false;
+        continue;
+      }
+
+      // Accumulate plain-text paragraph as description for the next diagram
+      if (collectingDesc && line.trim() !== '') {
+        currentDescription += (currentDescription ? ' ' : '') + line.trim();
+      } else if (collectingDesc && line.trim() === '' && currentDescription) {
+        collectingDesc = false;
+      }
+    } else {
+      if (line.trimEnd() === '```') {
+        inFence = false;
+        if (fenceLang === 'mermaid') {
+          const code = fenceLines.join('\n');
+          if (/sequenceDiagram/i.test(code)) {
+            blocks.push({ code, heading: currentHeading, description: currentDescription });
+          }
+        }
+        fenceLines = [];
+        fenceLang = '';
+      } else {
+        fenceLines.push(line);
+      }
+    }
+  }
+
+  return blocks;
+}
+
+function parseMarkdownFile(content: string, baseId: string): Diagram[] {
+  const blocks = extractMermaidBlocks(content);
+  return blocks.map((block, idx) => {
+    const id = blocks.length === 1 ? baseId : `${baseId}-${idx + 1}`;
+    return parseMermaidDiagram(block.code, id, block.heading || undefined, block.description || undefined);
+  });
+}
+
+// ---------------------------------------------------------------------------
+
 export class MermaidAdapter implements DiagramAdapter {
   async load(url: string): Promise<Diagram[]> {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
 
-    if (url.endsWith('.mmd') || url.endsWith('.md')) {
+    if (url.endsWith('.mmd')) {
       const text = await res.text();
       const id = url.split('/').pop()?.replace(/\.\w+$/, '') ?? 'diagram';
       return [parseMermaidDiagram(text, id)];
+    }
+
+    if (url.endsWith('.md')) {
+      const text = await res.text();
+      const baseId = url.split('/').pop()?.replace(/\.\w+$/, '') ?? 'diagram';
+      return parseMarkdownFile(text, baseId);
     }
 
     // Treat as manifest JSON
@@ -160,17 +247,23 @@ export class MermaidAdapter implements DiagramAdapter {
       (e) => (typeof e === 'string' ? { url: e } : e),
     );
 
-    const diagrams = await Promise.all(
-      entries.map(async (entry, idx) => {
-        const diagramUrl = resolveUrl(url, entry.url);
-        const r = await fetch(diagramUrl);
-        if (!r.ok) throw new Error(`Failed to fetch ${diagramUrl}: ${r.status}`);
-        const text = await r.text();
-        const id =
-          entry.id ?? entry.url.split('/').pop()?.replace(/\.\w+$/, '') ?? `diagram-${idx}`;
-        return parseMermaidDiagram(text, id);
-      }),
-    );
+    const diagrams = (
+      await Promise.all(
+        entries.map(async (entry, idx) => {
+          const diagramUrl = resolveUrl(url, entry.url);
+          const r = await fetch(diagramUrl);
+          if (!r.ok) throw new Error(`Failed to fetch ${diagramUrl}: ${r.status}`);
+          const text = await r.text();
+          const baseId =
+            entry.id ?? entry.url.split('/').pop()?.replace(/\.\w+$/, '') ?? `diagram-${idx}`;
+
+          if (diagramUrl.endsWith('.md')) {
+            return parseMarkdownFile(text, baseId);
+          }
+          return [parseMermaidDiagram(text, baseId)];
+        }),
+      )
+    ).flat();
 
     return diagrams;
   }
